@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 from bson import ObjectId
+from bson.errors import InvalidId
 
 from flask import Flask, render_template, redirect, request, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -36,6 +37,7 @@ app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/COM7
 # Secure session cookie settings
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax" 
+app.config["SESSION_COOKIE_SECURE"] = True
 
 # Extensions
 db = SQLAlchemy(app)          # SQLite (auth)
@@ -69,9 +71,17 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         """Verify the password against the stored hash."""
         return check_password_hash(self.password_hash, password)
-
+#------------------
+# Helper Functions
+#------------------  
+def validate_object_id(patient_id):
+    """Validate that a string is a valid MongoDB ObjectId"""
+    try:
+        return ObjectId(patient_id)
+    except(InvalidId, TypeError):
+        return None
 # -----------------------
-# Forms (use Flask-WTF for CSRF + validation)
+# Forms (Flask-WTF for CSRF + validation)
 # -----------------------
 
 class RegistrationForm(FlaskForm):
@@ -140,7 +150,9 @@ def list_patients():
     collection = mongo.db.patients
 
     patients_cursor = collection.find(query).sort("_id", -1)  # newest first
-    patients = list(patients_cursor)
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    patients = list(patients_cursor.skip((page-1)*per_page).limit(per_page))
 
     total_patients = collection.count_documents({})
 
@@ -153,10 +165,18 @@ def list_patients():
 @app.route("/patients/<patient_id>")
 @login_required
 def patient_detail(patient_id):
+    """View details for a specific patient"""
+    #Validate ObjectID
+    obj_id = validate_object_id(patient_id)
+    if not obj_id:
+        flash("Invalid patient ID format", "danger")
+        return redirect(url_for("list_patients"))
+
     collection = mongo.db.patients
     patient = collection.find_one({"_id": ObjectId(patient_id)})
+
     if not patient:
-        return "Patient not found", 404
+        return ("Patient not found", "warning")
     return render_template("patient_detail.html", patient=patient)
 
 @app.route("/patients/<patient_id>/edit", methods=["GET", "POST"])
@@ -230,14 +250,16 @@ def register():
         email = form.email.data.lower()
         password = form.password.data
 
-        # Create new user with hashed password
-        user = User(email=email)
-        user.set_password(password)
+    # Create new user with hashed password
+    user = User(email=email)
+    user.set_password(password)
+
     try:    
         db.session.add(user)
         db.session.commit()
         flash("Registration successful. You can now log in.", "success")
         return redirect(url_for("login"))
+    
     except Exception as e:
         db.session.rollback()
         flash("Registration failed. Please try again.", "danger")
