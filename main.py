@@ -182,52 +182,72 @@ def patient_detail(patient_id):
 @app.route("/patients/<patient_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_patient(patient_id):
+    # Validate ObjectId
+    obj_id = validate_object_id(patient_id)
+    if not obj_id:
+        flash("Invalid patient ID format.", "danger")
+        return redirect(url_for("list_patients"))
+    
     collection = mongo.db.patients
     patient = collection.find_one({"_id": ObjectId(patient_id)})
+
     if not patient:
-        return "Patient not found", 404
+        flash("Patient not found", "warning")
+        return redirect(url_for("list_patients"))
+
 
     if request.method == "POST":
-        update = {
-            "gender": request.form.get("gender"),
-            "age": int(request.form.get("age") or 0),
-            "hypertension": int(request.form.get("hypertension") or 0),
-            "heart_disease": int(request.form.get("heart_disease") or 0),
-            "ever_married": request.form.get("ever_married"),
-            "work_type": request.form.get("work_type"),
-            "Residence_type": request.form.get("Residence_type"),
-            "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
-            "bmi": float(request.form.get("bmi") or 0),
-            "smoking_status": request.form.get("smoking_status"),
-            "stroke": int(request.form.get("stroke") or 0),
-        }
-
-        collection.update_one({"_id": ObjectId(patient_id)}, {"$set": update})
-        return redirect(url_for("patient_detail", patient_id=patient_id))
+        try:
+            update = {
+                "gender": request.form.get("gender"),
+                "age": int(request.form.get("age") or 0),
+                "hypertension": int(request.form.get("hypertension") or 0),
+                "heart_disease": int(request.form.get("heart_disease") or 0),
+                "ever_married": request.form.get("ever_married"),
+                "work_type": request.form.get("work_type"),
+                "Residence_type": request.form.get("Residence_type"),
+                "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
+                "bmi": float(request.form.get("bmi") or 0),
+                "smoking_status": request.form.get("smoking_status"),
+                "stroke": int(request.form.get("stroke") or 0),
+            }
+            collection.update_one({"_id": ObjectId(patient_id)}, {"$set": update})
+            flash("Patient record updated successfully.", "success")
+            return redirect(url_for("patient_detail", patient_id=patient_id))
+        except (ValueError, TypeError) as e:
+            flash(("Invalid input data. Please check your entries.", "danger"))
+            app.logger.error(f"Error updating patient {patient_id}: {e}")
 
     return render_template("edit_patient.html", patient=patient)
 
 @app.route("/patients/new", methods=["GET", "POST"])
 @login_required
 def create_patient():
+    """Create a new patient record"""
     if request.method == "POST":
-        # basic sanitisation and type conversion
-        doc = {
-            "gender": request.form.get("gender"),
-            "age": int(request.form.get("age") or 0),
-            "hypertension": int(request.form.get("hypertension") or 0),
-            "heart_disease": int(request.form.get("heart_disease") or 0),
-            "ever_married": request.form.get("ever_married"),
-            "work_type": request.form.get("work_type"),
-            "Residence_type": request.form.get("Residence_type"),
-            "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
-            "bmi": float(request.form.get("bmi") or 0),
-            "smoking_status": request.form.get("smoking_status"),
-            "stroke": int(request.form.get("stroke") or 0),
-        }
+        try:
+            # Sanitisation and type conversion
+            doc = {
+                "gender": request.form.get("gender"),
+                "age": int(request.form.get("age") or 0),
+                "hypertension": int(request.form.get("hypertension") or 0),
+                "heart_disease": int(request.form.get("heart_disease") or 0),
+                "ever_married": request.form.get("ever_married"),
+                "work_type": request.form.get("work_type"),
+                "Residence_type": request.form.get("Residence_type"),
+                "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
+                "bmi": float(request.form.get("bmi") or 0),
+                "smoking_status": request.form.get("smoking_status"),
+                "stroke": int(request.form.get("stroke") or 0),
+            }
+            result = mongo.db.patients.insert_one(doc)
+            flash("Patient record created successfully.", "succes")
+            return redirect(url_for("patient_detail", patient_id=str(result.inserted.id)))
+        except (ValueError, TypeError) as e:
+            flash("Invalid input data. Please check your entries.", "danger")
+            app.logger.error(f"Error creating patient: {e}")
+    return render_template("create_patient.html")
 
-        mongo.db.patients.insert_one(doc)
-        return redirect(url_for("list_patients"))
 
     # GET → show the form
     return render_template("create_patient.html")
@@ -235,7 +255,24 @@ def create_patient():
 @app.route("/patients/<patient_id>/delete", methods=["POST"])
 @login_required
 def delete_patient(patient_id):
-    mongo.db.patients.delete_one({"_id": ObjectId(patient_id)})
+    """Delete a patient record."""
+    # Validate ObjectId
+    obj_id = validate_object_id(patient_id)
+    if not obj_id:
+        flash("Invalid patient ID format.", "danger")
+        return redirect(url_for("list_patients"))
+    
+    try:
+        result = mongo.db.patients.delete_one({"_id": obj_id})
+        
+        if result.deleted_count > 0:
+            flash("Patient record deleted successfully.", "success")
+        else:
+            flash("Patient not found.", "warning")
+    except Exception as e:
+        flash("Error deleting patient record.", "danger")
+        app.logger.error(f"Error deleting patient {patient_id}: {e}")
+    
     return redirect(url_for("list_patients"))
 
 # -----------------------
