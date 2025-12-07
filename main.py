@@ -113,7 +113,9 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Login")
 
-# Routes
+
+# -----------------------
+# Patient Management Routes
 
 @app.route("/")
 def home():
@@ -122,9 +124,99 @@ def home():
 @app.route("/patients")
 @login_required
 def list_patients():
-    # We'll replace this with real MongoDB logic soon
-    return "Patients page (MongoDB-backed patient records will go here)."
+    gender = request.args.get("gender")
+    stroke = request.args.get("stroke")
+    smoking = request.args.get("smoking_status")
 
+    query = {}
+
+    if gender:
+        query["gender"] = gender
+    if stroke:
+        query["stroke"] = stroke
+    if smoking:
+        query["smoking_status"] = smoking
+
+    collection = mongo.db.patients
+
+    patients_cursor = collection.find(query).sort("_id", -1)  # newest first
+    patients = list(patients_cursor)
+
+    total_patients = collection.count_documents({})
+
+    return render_template(
+        "patients.html",
+        patients=patients,
+        total_patients=total_patients,
+    )
+
+@app.route("/patients/<patient_id>")
+@login_required
+def patient_detail(patient_id):
+    collection = mongo.db.patients
+    patient = collection.find_one({"_id": ObjectId(patient_id)})
+    if not patient:
+        return "Patient not found", 404
+    return render_template("patient_detail.html", patient=patient)
+
+@app.route("/patients/<patient_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_patient(patient_id):
+    collection = mongo.db.patients
+    patient = collection.find_one({"_id": ObjectId(patient_id)})
+    if not patient:
+        return "Patient not found", 404
+
+    if request.method == "POST":
+        update = {
+            "gender": request.form.get("gender"),
+            "age": int(request.form.get("age") or 0),
+            "hypertension": int(request.form.get("hypertension") or 0),
+            "heart_disease": int(request.form.get("heart_disease") or 0),
+            "ever_married": request.form.get("ever_married"),
+            "work_type": request.form.get("work_type"),
+            "Residence_type": request.form.get("Residence_type"),
+            "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
+            "bmi": float(request.form.get("bmi") or 0),
+            "smoking_status": request.form.get("smoking_status"),
+            "stroke": int(request.form.get("stroke") or 0),
+        }
+
+        collection.update_one({"_id": ObjectId(patient_id)}, {"$set": update})
+        return redirect(url_for("patient_detail", patient_id=patient_id))
+
+    return render_template("edit_patient.html", patient=patient)
+
+@app.route("/patients/new", methods=["GET", "POST"])
+@login_required
+def create_patient():
+    if request.method == "POST":
+        # basic sanitisation and type conversion
+        doc = {
+            "gender": request.form.get("gender"),
+            "age": int(request.form.get("age") or 0),
+            "hypertension": int(request.form.get("hypertension") or 0),
+            "heart_disease": int(request.form.get("heart_disease") or 0),
+            "ever_married": request.form.get("ever_married"),
+            "work_type": request.form.get("work_type"),
+            "Residence_type": request.form.get("Residence_type"),
+            "avg_glucose_level": float(request.form.get("avg_glucose_level") or 0),
+            "bmi": float(request.form.get("bmi") or 0),
+            "smoking_status": request.form.get("smoking_status"),
+            "stroke": int(request.form.get("stroke") or 0),
+        }
+
+        mongo.db.patients.insert_one(doc)
+        return redirect(url_for("list_patients"))
+
+    # GET → show the form
+    return render_template("create_patient.html")
+
+@app.route("/patients/<patient_id>/delete", methods=["POST"])
+@login_required
+def delete_patient(patient_id):
+    mongo.db.patients.delete_one({"_id": ObjectId(patient_id)})
+    return redirect(url_for("list_patients"))
 
 # -----------------------
 # Authentication routes
@@ -132,6 +224,7 @@ def list_patients():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    #User Registration Page
     form = RegistrationForm()
     if form.validate_on_submit():
         email = form.email.data.lower()
@@ -155,6 +248,7 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    #User Login page
     form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data.lower()
@@ -180,10 +274,32 @@ def logout():
     flash("You have been logged out.", "info")
     return redirect(url_for("home"))
 
+# -----------------------
+# Load CSV into MongoDB patients collection
+# -----------------------
 
-# CLI helper (run & create tables)
+def import_csv_into_mongo():
+    """Import patient CSV into MongoDB if collection is empty."""
+    collection = mongo.db.patients
+    if collection.count_documents({}) == 0:
+        csv_path = os.path.join(basedir, "healthcare-dataset-stroke-data.csv")
+        if not os.path.exists(csv_path):
+            print(f"[WARN] CSV file not found at {csv_path}. Skipping import.")
+            return
+
+        df = pd.read_csv(csv_path)
+        records = df.to_dict(orient="records")
+        collection.insert_many(records)
+        print(f"[INFO] Imported {len(records)} patient records into MongoDB.")
+    else:
+        print("[INFO] Patients collection already populated; skipping CSV import.")
+
+
+
+# Run & create tables
 # -----------------------
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()  # ensure auth.db and User table exist
+        import_csv_into_mongo()
     app.run(debug=True)

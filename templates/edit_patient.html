@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Patient {{ patient["_id"] }}{% endblock %}
+
+{% block content %}
+<h2>Edit Patient</h2>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <p>
+        <label>Gender:</label><br>
+        <select name="gender">
+            <option value="Male" {% if patient.get("gender") == "Male" %}selected{% endif %}>Male</option>
+            <option value="Female" {% if patient.get("gender") == "Female" %}selected{% endif %}>Female</option>
+        </select>
+    </p>
+
+    <p><label>Age:</label><br><input type="number" name="age" value="{{ patient.get('age') }}"></p>
+    <p><label>Hypertension:</label><br><input type="number" name="hypertension" value="{{ patient.get('hypertension') }}"></p>
+    <p><label>Heart Disease:</label><br><input type="number" name="heart_disease" value="{{ patient.get('heart_disease') }}"></p>
+    <p>
+        <label>Ever Married:</label><br>
+        <select name="ever_married">
+            <option value="Yes" {% if patient.get("ever_married") == "Yes" %}selected{% endif %}>Yes</option>
+            <option value="No" {% if patient.get("ever_married") == "No" %}selected{% endif %}>No</option>
+        </select>
+    </p>
+    <p><label>Work Type:</label><br><input type="text" name="work_type" value="{{ patient.get('work_type') }}"></p>
+    <p><label>Residence Type:</label><br><input type="text" name="Residence_type" value="{{ patient.get('Residence_type') }}"></p>
+    <p><label>Avg Glucose Level:</label><br><input type="number" step="0.01" name="avg_glucose_level" value="{{ patient.get('avg_glucose_level') }}"></p>
+    <p><label>BMI:</label><br><input type="number" step="0.1" name="bmi" value="{{ patient.get('bmi') }}"></p>
+    <p><label>Smoking Status:</label><br><input type="text" name="smoking_status" value="{{ patient.get('smoking_status') }}"></p>
+    <p><label>Stroke:</label><br><input type="number" name="stroke" value="{{ patient.get('stroke') }}"></p>
+
+    <p><button type="submit">Save Changes</button></p>
+</form>
+{% endblock %}
