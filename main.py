@@ -288,8 +288,8 @@ def register():
         password = form.password.data
 
     # Create new user with hashed password
-    user = User(email=email)
-    user.set_password(password)
+    new_user = User(email=email)
+    new_user.set_password(password)
 
     try:    
         db.session.add(user)
