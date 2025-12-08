@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from bson import ObjectId
 from bson.errors import InvalidId
 
-from flask import Flask, render_template, redirect, request, url_for, flash
+from datetime import timedelta
+from flask import Flask, render_template, redirect, request, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_pymongo import PyMongo
 from flask_wtf import CSRFProtect, FlaskForm
@@ -15,12 +16,12 @@ from wtforms.validators import Email, DataRequired, Length, EqualTo, ValidationE
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-#Load environment
+# Load environment
 load_dotenv()
 
 app = Flask(__name__)
 
-# ----Core configuration
+# Core configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 # Secret key for sessions
@@ -37,13 +38,17 @@ app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/COM7
 # Secure session cookie settings
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax" 
-app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SECURE"] = False
+
+# Session persistence
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
 # Extensions
 db = SQLAlchemy(app)          # SQLite (auth)
 mongo = PyMongo(app)          # MongoDB (patients)
 csrf = CSRFProtect(app)       # CSRF protection
-login_manager = LoginManager(app)  # handles user sessions
+login_manager = LoginManager(app)  # Handles user sessions
 
 # Where to redirect if @login_required hits an anonymous user
 login_manager.login_view = "login"
@@ -59,7 +64,7 @@ class User(UserMixin, db.Model):
     """User account stored in SQLite for authentication."""
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)  # hashed password
+    password_hash = db.Column(db.String(200), nullable=False)  # Hashes password
 
     def __repr__(self):
         return f"<User {self.email}>"
@@ -71,6 +76,7 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         """Verify the password against the stored hash."""
         return check_password_hash(self.password_hash, password)
+
 #------------------
 # Helper Functions
 #------------------  
@@ -80,6 +86,7 @@ def validate_object_id(patient_id):
         return ObjectId(patient_id)
     except(InvalidId, TypeError):
         return None
+
 # -----------------------
 # Forms (Flask-WTF for CSRF + validation)
 # -----------------------
@@ -126,9 +133,13 @@ class LoginForm(FlaskForm):
 
 # -----------------------
 # Patient Management Routes
+# -----------------------
 
 @app.route("/")
 def home():
+    # Redirect logged-in users to patients list
+    if current_user.is_authenticated:
+        return redirect(url_for("list_patients"))
     return render_template("home.html")
 
 @app.route("/patients")
@@ -151,7 +162,7 @@ def list_patients():
 
     patients_cursor = collection.find(query).sort("_id", -1)  # newest first
     page = request.args.get('page', 1, type=int)
-    per_page = 20
+    per_page = 30
     patients = list(patients_cursor.skip((page-1)*per_page).limit(per_page))
 
     total_patients = collection.count_documents({})
@@ -166,17 +177,20 @@ def list_patients():
 @login_required
 def patient_detail(patient_id):
     """View details for a specific patient"""
-    #Validate ObjectID
+    # Validate ObjectID
     obj_id = validate_object_id(patient_id)
     if not obj_id:
         flash("Invalid patient ID format", "danger")
         return redirect(url_for("list_patients"))
 
     collection = mongo.db.patients
-    patient = collection.find_one({"_id": ObjectId(patient_id)})
+    # BUG FIX: Use obj_id instead of ObjectId(patient_id)
+    patient = collection.find_one({"_id": obj_id})
 
     if not patient:
-        return ("Patient not found", "warning")
+        flash("Patient not found", "warning")
+        return redirect(url_for("list_patients"))
+    
     return render_template("patient_detail.html", patient=patient)
 
 @app.route("/patients/<patient_id>/edit", methods=["GET", "POST"])
@@ -189,12 +203,11 @@ def edit_patient(patient_id):
         return redirect(url_for("list_patients"))
     
     collection = mongo.db.patients
-    patient = collection.find_one({"_id": ObjectId(patient_id)})
+    patient = collection.find_one({"_id": obj_id})
 
     if not patient:
         flash("Patient not found", "warning")
         return redirect(url_for("list_patients"))
-
 
     if request.method == "POST":
         try:
@@ -211,11 +224,13 @@ def edit_patient(patient_id):
                 "smoking_status": request.form.get("smoking_status"),
                 "stroke": int(request.form.get("stroke") or 0),
             }
-            collection.update_one({"_id": ObjectId(patient_id)}, {"$set": update})
+            
+            collection.update_one({"_id": obj_id}, {"$set": update})
             flash("Patient record updated successfully.", "success")
             return redirect(url_for("patient_detail", patient_id=patient_id))
         except (ValueError, TypeError) as e:
-            flash(("Invalid input data. Please check your entries.", "danger"))
+            
+            flash("Invalid input data. Please check your entries.", "danger")
             app.logger.error(f"Error updating patient {patient_id}: {e}")
 
     return render_template("edit_patient.html", patient=patient)
@@ -241,15 +256,13 @@ def create_patient():
                 "stroke": int(request.form.get("stroke") or 0),
             }
             result = mongo.db.patients.insert_one(doc)
-            flash("Patient record created successfully.", "succes")
-            return redirect(url_for("patient_detail", patient_id=str(result.inserted.id)))
+            flash("Patient record created successfully.", "success")
+            return redirect(url_for("patient_detail", patient_id=str(result.inserted_id)))
         except (ValueError, TypeError) as e:
             flash("Invalid input data. Please check your entries.", "danger")
             app.logger.error(f"Error creating patient: {e}")
-    return render_template("create_patient.html")
-
-
-    # GET → show the form
+    
+    
     return render_template("create_patient.html")
 
 @app.route("/patients/<patient_id>/delete", methods=["POST"])
@@ -281,54 +294,93 @@ def delete_patient(patient_id):
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    #User Registration Page
+    """User Registration Page"""
+    # Redirect if already logged in
+    if current_user.is_authenticated:
+        return redirect(url_for("list_patients"))
+    
     form = RegistrationForm()
+    
+    # Only process registration if form is submitted AND validates
     if form.validate_on_submit():
+        # Extract form data
         email = form.email.data.lower()
         password = form.password.data
-
-    # Create new user with hashed password
-    new_user = User(email=email)
-    new_user.set_password(password)
-
-    try:    
-        db.session.add(user)
-        db.session.commit()
-        flash("Registration successful. You can now log in.", "success")
-        return redirect(url_for("login"))
+        
+        # Create user object
+        new_user = User(email=email)
+        new_user.set_password(password)
+        
+        # Save to database
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash("Registration successful. You can now log in.", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            db.session.rollback()
+            flash("Registration failed. Please try again.", "danger")
+            app.logger.error(f"Registration error: {e}")
     
-    except Exception as e:
-        db.session.rollback()
-        flash("Registration failed. Please try again.", "danger")
-        app.logger.error(f"Registration error: {e}")
-
+    # Show registration form (for GET requests or validation failures)
     return render_template("register.html", form=form)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    #User Login page
+    """User Login page with debugging"""
+    # Redirect if already logged in
+    if current_user.is_authenticated:
+        print(f"DEBUG: User already authenticated: {current_user.email}")
+        return redirect(url_for("list_patients"))
+    
     form = LoginForm()
+    
     if form.validate_on_submit():
         email = form.email.data.lower()
         password = form.password.data
-
+        
+        print(f"DEBUG: Login attempt for: {email}")
         user = User.query.filter_by(email=email).first()
 
-        if user and user.check_password(password):
-            login_user(user)
-            flash("Logged in successfully.", "success")
-            # Later you can redirect to next or patients
-            return redirect(url_for("home"))
+        if user:
+            print(f"DEBUG: User found in database")
+            if user.check_password(password):
+                print(f"DEBUG: Password check PASSED")
+                
+                # Log the user in
+                login_user(user, remember=True)
+                session.permanent = True
+                
+                print(f"DEBUG: After login_user()")
+                print(f"DEBUG: current_user.is_authenticated = {current_user.is_authenticated}")
+                print(f"DEBUG: current_user.id = {current_user.get_id()}")
+                
+                flash("Logged in successfully.", "success")
+                
+                # Get next page
+                next_page = request.args.get('next')
+                
+                # Security: Only allow relative URLs
+                if next_page and not next_page.startswith('/'):
+                    next_page = None
+                
+                redirect_url = next_page or url_for("list_patients")
+                print(f"DEBUG: Redirecting to: {redirect_url}")
+                
+                return redirect(redirect_url)
+            else:
+                print(f"DEBUG: Password check FAILED")
+                flash("Invalid email or password.", "danger")
         else:
+            print(f"DEBUG: User NOT found in database")
             flash("Invalid email or password.", "danger")
 
     return render_template("login.html", form=form)
 
-#Log out the current user
 @app.route("/logout")
 @login_required
 def logout():
+    """Log out the current user"""
     logout_user()
     flash("You have been logged out.", "info")
     return redirect(url_for("home"))
@@ -354,11 +406,19 @@ def import_csv_into_mongo():
         print("[INFO] Patients collection already populated; skipping CSV import.")
 
 
-
 # Run & create tables
 # -----------------------
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()  # ensure auth.db and User table exist
         import_csv_into_mongo()
+    
+    print("=" * 70)
+    print("FLASK APP STARTING")
+    print("=" * 70)
+    print(f"SECRET_KEY: {app.config['SECRET_KEY'][:20]}...")
+    print(f"SESSION_COOKIE_SECURE: {app.config['SESSION_COOKIE_SECURE']}")
+    print(f"SESSION_PERMANENT: {app.config['SESSION_PERMANENT']}")
+    print("=" * 70)
+    
     app.run(debug=True)
