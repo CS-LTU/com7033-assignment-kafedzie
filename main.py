@@ -3,6 +3,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from bson import ObjectId
 from bson.errors import InvalidId
+from functools import wraps
 
 from datetime import timedelta
 from flask import Flask, render_template, redirect, request, url_for, flash, session
@@ -11,7 +12,7 @@ from flask_pymongo import PyMongo
 from flask_wtf import CSRFProtect, FlaskForm
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import Email, DataRequired, Length, EqualTo, ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -76,6 +77,29 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         """Verify the password against the stored hash."""
         return check_password_hash(self.password_hash, password)
+    
+    def is_admin(self):
+        """Check if user is an Administrator"""
+        return self.role == "admin"
+    
+    def is_general_user(self):
+        """Check if user is a general user"""
+        return self.role == "user"
+
+# ========= Role based access control decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('login'))
+            
+        if not current_user.is_admin():
+            flash("Access denied. Admin privileges required.", "danger")
+            return redirect(url_for('home'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 #------------------
 # Helper Functions
@@ -129,6 +153,56 @@ class LoginForm(FlaskForm):
     )
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Login")
+
+class ForgotPasswordForm(FlaskForm ):
+    """Forms for user to request password reset"""
+    email = StringField(
+        "Email",
+        validators=[DataRequired(), Email(), Length(max=120)], 
+    )
+    Submit = SubmitField("Reset Password")
+
+class ResetPasswordForm(FlaskForm):
+    """Forms for user to reset password"""
+    email = StringField(
+        "Email",
+        validators=[DataRequired(), Email(), Length(max=120)],
+    )
+    new_password = PasswordField(
+        """New Password""",
+        validators=[
+            DataRequired(),
+            Length(min=8, message="Password must be at least 8 characters")
+        ],
+    )
+    confirm_password = PasswordField(
+        """Confirm new password"""
+        validators=[
+            DataRequired(),
+            EqualTo("new_password", message="Passwords must match"),
+            ],
+            )
+    
+    Submit = SubmitField("Reset Password")
+
+class CreateUserForm(FlaskForm):
+    """Administrator form to create new users"""
+    email = StringField(
+        "Email",
+        validators=[DataRequired(), Email(), Length(max=120)]
+    )
+    password = PasswordField(
+        """Password"""
+        validators=[DataRequired(), Email(), Length(max=120)],
+    )
+    role = SelectField(
+        "Role",
+        choices=[('user', 'General User'), ('admin', 'Administrator')],
+        validators=[DataRequired()]
+    )
+    Submit = SubmitField("Create User")
+
+
 
 
 # -----------------------
