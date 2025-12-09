@@ -160,7 +160,7 @@ class ForgotPasswordForm(FlaskForm ):
         "Email",
         validators=[DataRequired(), Email(), Length(max=120)], 
     )
-    Submit = SubmitField("Reset Password")
+    submit = SubmitField("Reset Password")
 
 class ResetPasswordForm(FlaskForm):
     """Forms for user to reset password"""
@@ -172,18 +172,17 @@ class ResetPasswordForm(FlaskForm):
         """New Password""",
         validators=[
             DataRequired(),
-            Length(min=8, message="Password must be at least 8 characters")
+            Length(min=8, message="Password must be at least 8 characters"),
         ],
     )
     confirm_password = PasswordField(
-        """Confirm new password"""
+        "Confirm new password",
         validators=[
             DataRequired(),
             EqualTo("new_password", message="Passwords must match"),
             ],
-            )
-    
-    Submit = SubmitField("Reset Password")
+    )
+    submit = SubmitField("Reset Password")
 
 class CreateUserForm(FlaskForm):
     """Administrator form to create new users"""
@@ -192,7 +191,7 @@ class CreateUserForm(FlaskForm):
         validators=[DataRequired(), Email(), Length(max=120)]
     )
     password = PasswordField(
-        """Password"""
+        "Password",
         validators=[DataRequired(), Email(), Length(max=120)],
     )
     role = SelectField(
@@ -200,14 +199,10 @@ class CreateUserForm(FlaskForm):
         choices=[('user', 'General User'), ('admin', 'Administrator')],
         validators=[DataRequired()]
     )
-    Submit = SubmitField("Create User")
+    submit = SubmitField("Create User")
 
 
-
-
-# -----------------------
-# Patient Management Routes
-# -----------------------
+# ===== PUBLIC ROUTE =====
 
 @app.route("/")
 def home():
@@ -215,6 +210,236 @@ def home():
     if current_user.is_authenticated:
         return redirect(url_for("list_patients"))
     return render_template("home.html")
+
+# ===== AUTHENTICATION ROUTES =====
+
+app.route("/register", methods=["GET", "POST"])
+def register():
+    """User Registraton Page"""
+    if current_user.is_authenticated:
+        return redirect(url_for("list_patients"))
+
+    form = RegistrationForm()
+
+    if form.validate_on_submit():
+        email = form.email.data.lower()
+        password = form.password.data
+
+        #Create new user ()
+        new_user = User(email=email, role='user')
+        new_user.set_password(password)
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash("Registration successful. You can now login." "success")
+            return redirect(url_for("login"))
+        except:
+            db.session.rollback()
+            flash("Registration failed. Please try again." "danger")
+            app.logger.error("Registration error, error:{e}")
+    return render_template(register.html, form=form)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """User Login page"""
+    # Redirect if already logged in
+    if current_user.is_authenticated:
+        print(f"User already authenticated: {current_user.email}")
+        return redirect(url_for("list_patients"))
+    
+    form = LoginForm()
+    
+    if form.validate_on_submit():
+        email = form.email.data.lower()
+        password = form.password.data
+        
+        print(f"Login attempt for: {email}")
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            print(f"DEBUG: User found in database")
+            if user.check_password(password):
+                print(f"DEBUG: Password check PASSED")
+                
+                # Log the user in
+                login_user(user, remember=True)
+                session.permanent = True
+                
+                print(f"DEBUG: After login_user()")
+                print(f"DEBUG: current_user.is_authenticated = {current_user.is_authenticated}")
+                print(f"DEBUG: current_user.id = {current_user.get_id()}")
+                
+                flash(f"Logged in successfully. Welcome, {user.email}!", "success")
+                
+                # Get next page
+                next_page = request.args.get('next')
+                
+                # Security: Only allow relative URLs
+                if next_page and not next_page.startswith('/'):
+                    next_page = None
+                
+                redirect_url = next_page or url_for("list_patients")
+                print(f"DEBUG: Redirecting to: {redirect_url}")
+                
+                return redirect(redirect_url)
+            else:
+                print(f"DEBUG: Password check FAILED")
+                flash("Invalid email or password.", "danger")
+        else:
+            print(f"DEBUG: User NOT found in database")
+            flash("Invalid email or password.", "danger")
+
+    return render_template("login.html", form=form)
+
+@app.route("/logout")
+@login_required
+def logout():
+    """Log out the current user"""
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for("home"))
+
+# ===== PASSWORD RESET ROUTES =====
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Password reset request page"""
+    if current_user.is_authenticated:
+        return redirect(url_for("list_patients"))
+    
+    form = ForgotPasswordForm()
+    
+    if form.validate_on_submit():
+        email = form.email.data.lower()
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Dummy message
+            flash(
+                "If an account exists with that email, password reset instructions have been sent. "
+                "For now, please contact an administrator to reset your password.",
+                "info"
+            )
+        else:
+            flash(
+                "If an account exists with that email, password reset instructions have been sent.",
+                "info"
+            )
+        
+        return redirect(url_for("login"))
+    
+    return render_template("forgot_password.html", form=form)
+
+@app.route("/reset-password", methods=["GET", "POST"])
+@admin_required
+def reset_password():
+    """Admin-only password reset page"""
+    form = ResetPasswordForm()
+    
+    if form.validate_on_submit():
+        email = form.email.data.lower()
+        new_password = form.new_password.data
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            user.set_password(new_password)
+            db.session.commit()
+            flash(f"Password reset successfully for {email}.", "success")
+            return redirect(url_for("admin_panel"))
+        else:
+            flash(f"User {email} not found.", "danger")    
+    return render_template("reset_password.html", form=form)
+
+
+ # ===== ADMIN PANEL =====
+
+@app.route("/admin")
+@admin_required
+def admin_panel():
+    """Admin dashboard"""
+    users = User.query.order_by(User.created_at.desc()).all()
+    total_patients = mongo.db.patients.count_documents({})
+    
+    return render_template(
+        "admin_panel.html",
+        users=users,
+        total_patients=total_patients
+    )
+
+
+@app.route("/admin/users/create", methods=["GET", "POST"])
+@admin_required
+def admin_create_user():
+    """Admin page to create new users"""
+    form = CreateUserForm()
+    
+    if form.validate_on_submit():
+        email = form.email.data.lower()
+        password = form.password.data
+        role = form.role.data
+        
+        # Check if user already exists
+        if User.query.filter_by(email=email).first():
+            flash(f"User {email} already exists.", "danger")
+        else:
+            new_user = User(email=email, role=role)
+            new_user.set_password(password)
+            
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                flash(f"User {email} created successfully with role: {role}.", "success")
+                return redirect(url_for("admin_panel"))
+            except Exception as e:
+                db.session.rollback()
+                flash("Failed to create user. Please try again.", "danger")
+                app.logger.error(f"User creation error: {e}")
+    
+    return render_template("admin_create_user.html", form=form)
+
+
+@app.route("/admin/users/<int:user_id>/toggle-role", methods=["POST"])
+@admin_required
+def admin_toggle_role(user_id):
+    """Toggle user role between admin and user"""
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent admin from removing their own admin privileges
+    if user.id == current_user.id:
+        flash("You cannot change your own role.", "warning")
+        return redirect(url_for("admin_panel"))
+    
+    # Toggle role
+    user.role = 'user' if user.role == 'admin' else 'admin'
+    db.session.commit()
+    
+    flash(f"User {user.email} role changed to: {user.role}", "success")
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    """Delete a user account"""
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent admin from deleting themselves
+    if user.id == current_user.id:
+        flash("You cannot delete your own account.", "warning")
+        return redirect(url_for("admin_panel"))
+    
+    email = user.email
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f"User {email} deleted successfully.", "success")
+    return redirect(url_for("admin_panel"))
+
+# -----------------------
+# Patient Management Routes
+# -----------------------
 
 @app.route("/patients")
 @login_required
@@ -228,7 +453,9 @@ def list_patients():
     if gender:
         query["gender"] = gender
     if stroke:
-        query["stroke"] = stroke
+        query["stroke"] = int(stroke)
+    except ValueError:
+    flash("Invalid stroke filter value.", "warning")
     if smoking:
         query["smoking_status"] = smoking
 
@@ -366,98 +593,6 @@ def delete_patient(patient_id):
 # Authentication routes
 # -----------------------
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    """User Registration Page"""
-    # Redirect if already logged in
-    if current_user.is_authenticated:
-        return redirect(url_for("list_patients"))
-    
-    form = RegistrationForm()
-    
-    # Only process registration if form is submitted AND validates
-    if form.validate_on_submit():
-        # Extract form data
-        email = form.email.data.lower()
-        password = form.password.data
-        
-        # Create user object
-        new_user = User(email=email)
-        new_user.set_password(password)
-        
-        # Save to database
-        try:
-            db.session.add(new_user)
-            db.session.commit()
-            flash("Registration successful. You can now log in.", "success")
-            return redirect(url_for("login"))
-        except Exception as e:
-            db.session.rollback()
-            flash("Registration failed. Please try again.", "danger")
-            app.logger.error(f"Registration error: {e}")
-    
-    # Show registration form (for GET requests or validation failures)
-    return render_template("register.html", form=form)
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    """User Login page with debugging"""
-    # Redirect if already logged in
-    if current_user.is_authenticated:
-        print(f"DEBUG: User already authenticated: {current_user.email}")
-        return redirect(url_for("list_patients"))
-    
-    form = LoginForm()
-    
-    if form.validate_on_submit():
-        email = form.email.data.lower()
-        password = form.password.data
-        
-        print(f"DEBUG: Login attempt for: {email}")
-        user = User.query.filter_by(email=email).first()
-
-        if user:
-            print(f"DEBUG: User found in database")
-            if user.check_password(password):
-                print(f"DEBUG: Password check PASSED")
-                
-                # Log the user in
-                login_user(user, remember=True)
-                session.permanent = True
-                
-                print(f"DEBUG: After login_user()")
-                print(f"DEBUG: current_user.is_authenticated = {current_user.is_authenticated}")
-                print(f"DEBUG: current_user.id = {current_user.get_id()}")
-                
-                flash("Logged in successfully.", "success")
-                
-                # Get next page
-                next_page = request.args.get('next')
-                
-                # Security: Only allow relative URLs
-                if next_page and not next_page.startswith('/'):
-                    next_page = None
-                
-                redirect_url = next_page or url_for("list_patients")
-                print(f"DEBUG: Redirecting to: {redirect_url}")
-                
-                return redirect(redirect_url)
-            else:
-                print(f"DEBUG: Password check FAILED")
-                flash("Invalid email or password.", "danger")
-        else:
-            print(f"DEBUG: User NOT found in database")
-            flash("Invalid email or password.", "danger")
-
-    return render_template("login.html", form=form)
-
-@app.route("/logout")
-@login_required
-def logout():
-    """Log out the current user"""
-    logout_user()
-    flash("You have been logged out.", "info")
-    return redirect(url_for("home"))
 
 # -----------------------
 # Load CSV into MongoDB patients collection
