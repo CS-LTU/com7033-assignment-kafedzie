@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Create User - Healthcare Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <div style="margin-bottom: 1.5rem; color: #64748b; font-size: 0.9rem;">
+        <a href="{{ url_for('admin_panel') }}" style="color: #2563eb;">← Back to Admin Panel</a>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header mb-3">
+        <h1 class="page-title">Create New User</h1>
+        <p class="page-subtitle">Add a new user to the system</p>
+    </div>
+
+    <!-- Info Box -->
+    <div class="card mb-3" style="border-left: 4px solid var(--info);">
+        <div class="card-body">
+            <div style="display: flex; align-items: start; gap: 1rem;">
+                <div style="font-size: 2rem;">ℹ️</div>
+                <div>
+                    <h4 style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-dark);">User Roles</h4>
+                    <div style="color: var(--text-medium); line-height: 1.6;">
+                        <strong style="color: var(--primary-blue);">General User:</strong> Can view and edit patient records<br>
+                        <strong style="color: var(--primary-blue);">Administrator:</strong> Full access including user management and patient deletion
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card" style="max-width: 600px;">
+        <form method="POST" action="{{ url_for('admin_create_user') }}">
+            {{ form.hidden_tag() }}
+            
+            <div class="card-body">
+                <div class="form-group">
+                    {{ form.email.label }}
+                    {{ form.email(placeholder="user@example.com", autocomplete="off") }}
+                    {% if form.email.errors %}
+                        {% for error in form.email.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <div style="font-size: 0.875rem; color: var(--text-medium); margin-top: 0.25rem;">
+                        This will be the user's login email address
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    {{ form.password.label }}
+                    {{ form.password(placeholder="Minimum 8 characters", autocomplete="new-password") }}
+                    {% if form.password.errors %}
+                        {% for error in form.password.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <div style="font-size: 0.875rem; color: var(--text-medium); margin-top: 0.25rem;">
+                        Temporary password - user should change on first login
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    {{ form.role.label }}
+                    {{ form.role }}
+                    {% if form.role.errors %}
+                        {% for error in form.role.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    <div style="font-size: 0.875rem; color: var(--text-medium); margin-top: 0.25rem;">
+                        Select the appropriate access level for this user
+                    </div>
+                </div>
+
+                <!-- Security Notice -->
+                <div style="background: var(--very-light-blue); padding: 1rem; border-radius: 0.5rem; border-left: 4px solid var(--primary-blue); margin-top: 1.5rem;">
+                    <div style="font-weight: 600; color: var(--primary-blue); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🔒</span> Security Best Practices
+                    </div>
+                    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-medium); font-size: 0.875rem;">
+                        <li>Use a strong temporary password</li>
+                        <li>Inform the user to change their password immediately</li>
+                        <li>Only grant admin privileges to trusted personnel</li>
+                        <li>Regularly review user access levels</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card-header" style="background: var(--background-alt); border-top: 1px solid var(--border); border-bottom: none;">
+                <div class="btn-group" style="justify-content: flex-end; width: 100%;">
+                    <a href="{{ url_for('admin_panel') }}" class="btn btn-secondary">Cancel</a>
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,37 +1,165 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Healthcare Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
 
-{% block title %}Register{% endblock %}
+        .auth-container {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            width: 100%;
+            overflow: hidden;
+        }
 
-{% block content %}
-<h2>Register</h2>
+        .auth-header {
+            background: var(--primary-blue);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
 
-<form method="POST">
-    {{ form.hidden_tag() }}  {# includes CSRF token #}
+        .auth-header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
 
-    <p>
-        {{ form.email.label }}<br>
-        {{ form.email(size=32) }}<br>
-        {% for error in form.email.errors %}
-            <span style="color:red;">{{ error }}</span><br>
-        {% endfor %}
-    </p>
+        .auth-header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
 
-    <p>
-        {{ form.password.label }}<br>
-        {{ form.password(size=32) }}<br>
-        {% for error in form.password.errors %}
-            <span style="color:red;">{{ error }}</span><br>
-        {% endfor %}
-    </p>
+        .auth-body {
+            padding: 2.5rem;
+        }
 
-    <p>
-        {{ form.confirm_password.label }}<br>
-        {{ form.confirm_password(size=32) }}<br>
-        {% for error in form.confirm_password.errors %}
-            <span style="color:red;">{{ error }}</span><br>
-        {% endfor %}
-    </p>
+        .auth-footer {
+            background: var(--background-alt);
+            padding: 1.5rem 2.5rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
 
-    <p>{{ form.submit() }}</p>
-</form>
-{% endblock %}
+        .auth-footer a {
+            color: var(--primary-blue);
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 0.875rem;
+            font-size: 1rem;
+        }
+
+        .password-requirements {
+            background: var(--very-light-blue);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: var(--text-medium);
+        }
+
+        .password-requirements ul {
+            margin: 0.5rem 0 0 1.25rem;
+            padding: 0;
+        }
+
+        .password-requirements li {
+            margin: 0.25rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🏥</div>
+            <h1>Create Account</h1>
+            <p>Join our healthcare management system</p>
+        </div>
+
+        <div class="auth-body">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div style="margin-bottom: 1.5rem;">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span>
+                                    {% if category == 'success' %}✓{% elif category == 'danger' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+                                </span>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('register') }}">
+                {{ form.hidden_tag() }}
+
+                <div class="form-group">
+                    {{ form.email.label }}
+                    {{ form.email(placeholder="your@email.com", autocomplete="email") }}
+                    {% if form.email.errors %}
+                        {% for error in form.email.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <div class="password-requirements">
+                    <strong>Password Requirements:</strong>
+                    <ul>
+                        <li>Minimum 8 characters</li>
+                        <li>Recommended: mix of letters, numbers, and symbols</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    {{ form.password.label }}
+                    {{ form.password(placeholder="Create a strong password", autocomplete="new-password") }}
+                    {% if form.password.errors %}
+                        {% for error in form.password.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    {{ form.confirm_password.label }}
+                    {{ form.confirm_password(placeholder="Confirm your password", autocomplete="new-password") }}
+                    {% if form.confirm_password.errors %}
+                        {% for error in form.confirm_password.errors %}
+                            <div style="color: var(--danger); font-size: 0.875rem; margin-top: 0.25rem;">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                {{ form.submit(class="btn btn-primary btn-full") }}
+            </form>
+        </div>
+
+        <div class="auth-footer">
+            Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+        </div>
+    </div>
+</body>
+</html>

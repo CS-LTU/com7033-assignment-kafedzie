@@ -1,13 +1,89 @@
 {% extends "base.html" %}
 
-{% block title %}Home{% endblock %}
+{% block title %}Home - Healthcare Management System{% endblock %}
 
 {% block content %}
-<h2>Welcome</h2>
-<p>This is a secure Patient Management application.</p>
-<p>
-    <a href="{{ url_for('login') }}">Login</a> | 
-    <a href="{{ url_for('register') }}">Register</a> |
-    <a href="{{ url_for('list_patients') }}">View Patients</a>
-</p>
+<div class="container">
+    <!-- Hero Section -->
+    <div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); border: none; color: white;">
+        <div class="card-body" style="padding: 3rem; text-align: center;">
+            <h1 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; color: white;">
+                Healthcare Patient Management System
+            </h1>
+            <p style="font-size: 1.25rem; opacity: 0.9; margin-bottom: 2rem; color: white;">
+                Streamline patient care with our comprehensive management platform
+            </p>
+            {% if not current_user.is_authenticated %}
+            <div class="btn-group" style="justify-content: center;">
+                <a href="{{ url_for('login') }}" class="btn btn-secondary" style="background: white; color: #2563eb;">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-primary" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white;">Get Started</a>
+            </div>
+            {% else %}
+            <a href="{{ url_for('list_patients') }}" class="btn btn-primary" style="background: white; color: #2563eb; font-weight: 600;">
+                View Patients →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if current_user.is_authenticated %}
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Patients</div>
+            <div class="stat-value">{{ total_patients if total_patients is defined else '---' }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #10b981;">
+            <div class="stat-label">Active Records</div>
+            <div class="stat-value" style="color: #10b981;">{{ total_patients if total_patients is defined else '---' }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #f59e0b;">
+            <div class="stat-label">Your Role</div>
+            <div class="stat-value" style="color: #f59e0b; font-size: 1.5rem; text-transform: uppercase;">
+                {{ current_user.role }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Features Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 3rem;">
+        <div class="card hover-lift">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #1e293b;">Patient Records</h3>
+                <p style="color: #64748b;">Comprehensive patient information management with secure data storage</p>
+            </div>
+        </div>
+
+        <div class="card hover-lift">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #1e293b;">Health Analytics</h3>
+                <p style="color: #64748b;">Track patient health metrics and identify patterns in medical data</p>
+            </div>
+        </div>
+
+        <div class="card hover-lift">
+            <div class="card-body" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #1e293b;">Secure Access</h3>
+                <p style="color: #64748b;">Role-based access control ensures data privacy and compliance</p>
+            </div>
+        </div>
+    </div>
+
+    {% if not current_user.is_authenticated %}
+    <!-- Call to Action -->
+    <div class="card" style="margin-top: 3rem; border: 2px solid #2563eb;">
+        <div class="card-body" style="text-align: center; padding: 2rem;">
+            <h2 style="font-size: 1.75rem; font-weight: 600; margin-bottom: 1rem;">Ready to get started?</h2>
+            <p style="color: #64748b; margin-bottom: 1.5rem;">Create an account and start managing patient records efficiently</p>
+            <a href="{{ url_for('register') }}" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+                Create Account
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

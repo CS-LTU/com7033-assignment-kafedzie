@@ -1,95 +1,162 @@
 {% extends "base.html" %}
 
-{% block title %}Patients List{% endblock %}
+{% block title %}Patients - Healthcare Management System{% endblock %}
 
 {% block content %}
-<h2>Patient Records</h2>
+<div class="container">
+    <!-- Page Header -->
+    <div class="flex-between mb-3">
+        <div class="page-header">
+            <h1 class="page-title">Patient Records</h1>
+            <p class="page-subtitle">Manage and view all patient information</p>
+        </div>
+        <a href="{{ url_for('create_patient') }}" class="btn btn-primary">
+            + New Patient
+        </a>
+    </div>
 
-<p>Total in database: {{ total_patients }}</p>
-<p>Total shown on this page: {{ patients|length }}</p>
+    <!-- Filters -->
+    <div class="filters">
+        <form method="GET" action="{{ url_for('list_patients') }}">
+            <div class="filter-grid">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="gender">Gender</label>
+                    <select name="gender" id="gender">
+                        <option value="">All</option>
+                        <option value="Male" {% if request.args.get('gender') == 'Male' %}selected{% endif %}>Male</option>
+                        <option value="Female" {% if request.args.get('gender') == 'Female' %}selected{% endif %}>Female</option>
+                        <option value="Other" {% if request.args.get('gender') == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
 
-<h3>Filter Patients</h3>
-<form method="get" action="{{ url_for('list_patients') }}" style="margin-bottom: 20px;">
-    <label>Gender:</label>
-    <select name="gender">
-        <option value="">-- Any --</option>
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-    </select>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="stroke">Stroke History</label>
+                    <select name="stroke" id="stroke">
+                        <option value="">All</option>
+                        <option value="0" {% if request.args.get('stroke') == '0' %}selected{% endif %}>No</option>
+                        <option value="1" {% if request.args.get('stroke') == '1' %}selected{% endif %}>Yes</option>
+                    </select>
+                </div>
 
-    <label>Stroke:</label>
-    <select name="stroke">
-        <option value="">-- Any --</option>
-        <option value="0">No Stroke</option>
-        <option value="1">Stroke</option>
-    </select>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="smoking_status">Smoking Status</label>
+                    <select name="smoking_status" id="smoking_status">
+                        <option value="">All</option>
+                        <option value="never smoked" {% if request.args.get('smoking_status') == 'never smoked' %}selected{% endif %}>Never Smoked</option>
+                        <option value="formerly smoked" {% if request.args.get('smoking_status') == 'formerly smoked' %}selected{% endif %}>Formerly Smoked</option>
+                        <option value="smokes" {% if request.args.get('smoking_status') == 'smokes' %}selected{% endif %}>Smokes</option>
+                        <option value="Unknown" {% if request.args.get('smoking_status') == 'Unknown' %}selected{% endif %}>Unknown</option>
+                    </select>
+                </div>
 
-    <label>Smoking Status:</label>
-    <select name="smoking_status">
-        <option value="">-- Any --</option>
-        <option value="never smoked">never smoked</option>
-        <option value="formerly smoked">formerly smoked</option>
-        <option value="smokes">smokes</option>
-        <option value="Unknown">Unknown</option>
-    </select>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>&nbsp;</label>
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <a href="{{ url_for('list_patients') }}" class="btn btn-secondary">Clear</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
 
-    <button type="submit">Apply Filter</button>
-</form>
+    <!-- Stats Summary -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Patients</div>
+            <div class="stat-value">{{ total_patients }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #10b981;">
+            <div class="stat-label">Showing Results</div>
+            <div class="stat-value" style="color: #10b981;">{{ patients|length }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #f59e0b;">
+            <div class="stat-label">Filters Active</div>
+            <div class="stat-value" style="color: #f59e0b; font-size: 1.5rem;">
+                {% set filters = [] %}
+                {% if request.args.get('gender') %}{% set _ = filters.append(1) %}{% endif %}
+                {% if request.args.get('stroke') %}{% set _ = filters.append(1) %}{% endif %}
+                {% if request.args.get('smoking_status') %}{% set _ = filters.append(1) %}{% endif %}
+                {{ filters|length }}
+            </div>
+        </div>
+    </div>
 
-<p><a href="{{ url_for('create_patient') }}">➕ Add New Patient</a></p>
-
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Gender</th>
-            <th>Age</th>
-            <th>Hypertension</th>
-            <th>Heart Disease</th>
-            <th>Ever Married</th>
-            <th>Work Type</th>
-            <th>Residence</th>
-            <th>Glucose</th>
-            <th>BMI</th>
-            <th>Smoking</th>
-            <th>Stroke</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for p in patients %}
-        <tr>
-            <td>
-                <a href="{{ url_for('patient_detail', patient_id=p['_id']) }}">
-                    {{ p['_id'] }}
-                </a>
-            </td>
-            <td>{{ p.get('gender') }}</td>
-            <td>{{ p.get('age') }}</td>
-            <td>{{ p.get('hypertension') }}</td>
-            <td>{{ p.get('heart_disease') }}</td>
-            <td>{{ p.get('ever_married') }}</td>
-            <td>{{ p.get('work_type') }}</td>
-            <td>{{ p.get('Residence_type') }}</td>
-            <td>{{ p.get('avg_glucose_level') }}</td>
-            <td>{{ p.get('bmi') }}</td>
-            <td>{{ p.get('smoking_status') }}</td>
-            <td>{{ p.get('stroke') }}</td>
-            <td>
-                <a href="{{ url_for('edit_patient', patient_id=p['_id']) }}">Edit</a>
-                |
-                <form method="POST"
-                      action="{{ url_for('delete_patient', patient_id=p['_id']) }}"
-                      style="display:inline;"
-                      onsubmit="return confirm('Delete this patient?');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" style="background:none;border:none;color:#c0392b;cursor:pointer;">
-                        Delete
-                    </button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <!-- Patients Table -->
+    {% if patients %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Gender</th>
+                    <th>Age</th>
+                    <th>Hypertension</th>
+                    <th>Heart Disease</th>
+                    <th>BMI</th>
+                    <th>Stroke</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for patient in patients %}
+                <tr>
+                    <td style="font-family: monospace; color: #64748b;">{{ patient._id }}</td>
+                    <td>
+                        <span style="font-weight: 500;">{{ patient.gender }}</span>
+                    </td>
+                    <td>{{ patient.age }} years</td>
+                    <td>
+                        {% if patient.hypertension == 1 %}
+                            <span class="badge" style="background: #fee2e2; color: #991b1b;">Yes</span>
+                        {% else %}
+                            <span class="badge" style="background: #d1fae5; color: #065f46;">No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if patient.heart_disease == 1 %}
+                            <span class="badge" style="background: #fee2e2; color: #991b1b;">Yes</span>
+                        {% else %}
+                            <span class="badge" style="background: #d1fae5; color: #065f46;">No</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "%.1f"|format(patient.bmi) }}</td>
+                    <td>
+                        {% if patient.stroke == 1 %}
+                            <span class="badge" style="background: #fef3c7; color: #92400e;">Yes</span>
+                        {% else %}
+                            <span class="badge" style="background: #d1fae5; color: #065f46;">No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{{ url_for('patient_detail', patient_id=patient._id) }}" class="btn btn-sm btn-secondary">View</a>
+                            <a href="{{ url_for('edit_patient', patient_id=patient._id) }}" class="btn btn-sm btn-primary">Edit</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="card">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <h3 class="empty-state-title">No Patients Found</h3>
+                <p class="empty-state-text">
+                    {% if request.args.get('gender') or request.args.get('stroke') or request.args.get('smoking_status') %}
+                        No patients match your current filters. Try adjusting your search criteria.
+                    {% else %}
+                        Get started by adding your first patient record.
+                    {% endif %}
+                </p>
+                <a href="{{ url_for('create_patient') }}" class="btn btn-primary">Add Patient</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

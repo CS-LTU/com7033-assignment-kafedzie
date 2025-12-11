@@ -1,35 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>{% block title %}Patient Management{% endblock %}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-        nav a { margin-right: 15px; text-decoration: none; color: #007bff; }
-        nav a:hover { text-decoration: underline; }
-        .container { margin-top: 20px; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Healthcare Management System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-<header>
-    <h1>Patient Management App</h1>
-    <nav>
-        <a href="{{ url_for('home') }}">Home</a>
-
-        {% if current_user.is_authenticated %}
-            <span>Logged in as {{ current_user.email }}</span>
-            <a href="{{ url_for('logout') }}">Logout</a>
-            <a href="{{ url_for('list_patients') }}">Patients</a>
-        {% else %}
-            <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('register') }}">Register</a>
-        {% endif %}
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="nav-brand">
+                <span>🏥</span> HealthCare
+            </a>
+            
+            {% if current_user.is_authenticated %}
+            <ul class="nav-links">
+                <li><a href="{{ url_for('list_patients') }}" {% if request.endpoint == 'list_patients' %}class="active"{% endif %}>Patients</a></li>
+                <li><a href="{{ url_for('create_patient') }}" {% if request.endpoint == 'create_patient' %}class="active"{% endif %}>New Patient</a></li>
+                {% if current_user.is_admin() %}
+                <li><a href="{{ url_for('admin_panel') }}" {% if request.endpoint == 'admin_panel' %}class="active"{% endif %}>Admin</a></li>
+                {% endif %}
+            </ul>
+            
+            <div class="nav-user">
+                <span class="user-email">{{ current_user.email }}</span>
+                <span class="badge {% if current_user.is_admin() %}badge-admin{% else %}badge-user{% endif %}">
+                    {{ current_user.role }}
+                </span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-secondary">Logout</a>
+            </div>
+            {% else %}
+            <div class="btn-group">
+                <a href="{{ url_for('login') }}" class="btn btn-sm btn-secondary">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-sm btn-primary">Register</a>
+            </div>
+            {% endif %}
+        </div>
     </nav>
-</header>
 
-<div class="container">
-    {% block content %}{% endblock %}
-</div>
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>
+                            {% if category == 'success' %}✓{% elif category == 'danger' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+                        </span>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

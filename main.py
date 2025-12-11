@@ -66,6 +66,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)  # Hashes password
+    role = db.Column(db.String(20), nullable=False, default='user')
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def __repr__(self):
         return f"<User {self.email}>"
@@ -145,7 +147,6 @@ class RegistrationForm(FlaskForm):
         if User.query.filter_by(email=field.data.lower()).first():
             raise ValidationError("An account with this email already exists.")
 
-
 class LoginForm(FlaskForm):
     email = StringField(
         "Email",
@@ -192,7 +193,7 @@ class CreateUserForm(FlaskForm):
     )
     password = PasswordField(
         "Password",
-        validators=[DataRequired(), Email(), Length(max=120)],
+        validators=[DataRequired(), Length(max=120)],
     )
     role = SelectField(
         "Role",
@@ -213,32 +214,33 @@ def home():
 
 # ===== AUTHENTICATION ROUTES =====
 
-app.route("/register", methods=["GET", "POST"])
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    """User Registraton Page"""
+    """User Registration Page"""
     if current_user.is_authenticated:
         return redirect(url_for("list_patients"))
-
+    
     form = RegistrationForm()
-
+    
     if form.validate_on_submit():
         email = form.email.data.lower()
         password = form.password.data
-
-        #Create new user ()
+        
+        # Create new user (default role is 'user')
         new_user = User(email=email, role='user')
         new_user.set_password(password)
-
+        
         try:
             db.session.add(new_user)
             db.session.commit()
-            flash("Registration successful. You can now login." "success")
+            flash("Registration successful. You can now log in.", "success")
             return redirect(url_for("login"))
-        except:
+        except Exception as e:
             db.session.rollback()
-            flash("Registration failed. Please try again." "danger")
-            app.logger.error("Registration error, error:{e}")
-    return render_template(register.html, form=form)
+            flash("Registration failed. Please try again.", "danger")
+            app.logger.error(f"Registration error: {e}")
+    
+    return render_template("register.html", form=form)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -453,8 +455,7 @@ def list_patients():
     if gender:
         query["gender"] = gender
     if stroke:
-        query["stroke"] = int(stroke)
-    except ValueError:
+        query["stroke"] = stroke
     flash("Invalid stroke filter value.", "warning")
     if smoking:
         query["smoking_status"] = smoking
@@ -588,11 +589,6 @@ def delete_patient(patient_id):
         app.logger.error(f"Error deleting patient {patient_id}: {e}")
     
     return redirect(url_for("list_patients"))
-
-# -----------------------
-# Authentication routes
-# -----------------------
-
 
 # -----------------------
 # Load CSV into MongoDB patients collection

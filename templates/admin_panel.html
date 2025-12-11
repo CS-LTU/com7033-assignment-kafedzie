@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Healthcare Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <div class="page-header mb-3">
+        <h1 class="page-title">Admin Panel</h1>
+        <p class="page-subtitle">Manage users and system settings</p>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value">{{ users|length }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #10b981;">
+            <div class="stat-label">Total Patients</div>
+            <div class="stat-value" style="color: #10b981;">{{ total_patients }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #f59e0b;">
+            <div class="stat-label">Administrators</div>
+            <div class="stat-value" style="color: #f59e0b;">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h3 class="card-title">Quick Actions</h3>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <a href="{{ url_for('admin_create_user') }}" class="btn btn-primary" style="text-align: center;">
+                    + Create New User
+                </a>
+                <a href="{{ url_for('reset_password') }}" class="btn btn-secondary" style="text-align: center;">
+                    🔑 Reset Password
+                </a>
+                <a href="{{ url_for('list_patients') }}" class="btn btn-secondary" style="text-align: center;">
+                    📋 View Patients
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Management -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">User Management</h3>
+        </div>
+        
+        {% if users %}
+        <div class="table-container" style="border-radius: 0; border: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td style="font-family: monospace; color: #64748b; font-weight: 500;">{{ user.id }}</td>
+                        <td>
+                            <div style="font-weight: 500; color: #1e293b;">{{ user.email }}</div>
+                            {% if user.id == current_user.id %}
+                            <div style="font-size: 0.75rem; color: #64748b;">(You)</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-user{% endif %}">
+                                {{ user.role|upper }}
+                            </span>
+                        </td>
+                        <td style="color: #64748b;">
+                            {{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}
+                        </td>
+                        <td>
+                            {% if user.id != current_user.id %}
+                            <div class="btn-group">
+                                <form method="POST" action="{{ url_for('admin_toggle_role', user_id=user.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-secondary">
+                                        {% if user.role == 'admin' %}
+                                            Make User
+                                        {% else %}
+                                            Make Admin
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('admin_delete_user', user_id=user.id) }}" 
+                                      onsubmit="return confirm('Are you sure you want to delete {{ user.email }}? This action cannot be undone.');" 
+                                      style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span style="color: #94a3b8; font-size: 0.875rem; font-style: italic;">Current User</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-state-icon">👥</div>
+                <h3 class="empty-state-title">No Users Found</h3>
+                <p class="empty-state-text">Start by creating your first user account.</p>
+                <a href="{{ url_for('admin_create_user') }}" class="btn btn-primary">Create User</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Info Box -->
+    <div class="card mt-3" style="border-left: 4px solid var(--info);">
+        <div class="card-body">
+            <div style="display: flex; align-items: start; gap: 1rem;">
+                <div style="font-size: 2rem;">ℹ️</div>
+                <div>
+                    <h4 style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-dark);">Admin Panel Information</h4>
+                    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-medium);">
+                        <li>You cannot delete or modify your own admin account</li>
+                        <li>Deleting a user is permanent and cannot be undone</li>
+                        <li>Admins have full access to all system features</li>
+                        <li>General users can view and edit patient records but cannot delete them</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
