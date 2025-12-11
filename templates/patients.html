@@ -71,13 +71,9 @@
             <div class="stat-value" style="color: #10b981;">{{ patients|length }}</div>
         </div>
         <div class="stat-card" style="border-left-color: #f59e0b;">
-            <div class="stat-label">Filters Active</div>
+            <div class="stat-label">Page</div>
             <div class="stat-value" style="color: #f59e0b; font-size: 1.5rem;">
-                {% set filters = [] %}
-                {% if request.args.get('gender') %}{% set _ = filters.append(1) %}{% endif %}
-                {% if request.args.get('stroke') %}{% set _ = filters.append(1) %}{% endif %}
-                {% if request.args.get('smoking_status') %}{% set _ = filters.append(1) %}{% endif %}
-                {{ filters|length }}
+                {{ page }} of {{ total_pages }}
             </div>
         </div>
     </div>
@@ -101,7 +97,7 @@
             <tbody>
                 {% for patient in patients %}
                 <tr>
-                    <td style="font-family: monospace; color: #64748b;">{{ patient._id }}</td>
+                    <td style="font-family: monospace; color: #64748b; font-size: 0.875rem;">{{ patient._id }}</td>
                     <td>
                         <span style="font-weight: 500;">{{ patient.gender }}</span>
                     </td>
@@ -139,6 +135,51 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        <!-- First Page -->
+        {% if page > 1 %}
+        <a href="{{ url_for('list_patients', page=1, gender=request.args.get('gender', ''), stroke=request.args.get('stroke', ''), smoking_status=request.args.get('smoking_status', '')) }}">
+            « First
+        </a>
+        {% endif %}
+
+        <!-- Previous Page -->
+        {% if page > 1 %}
+        <a href="{{ url_for('list_patients', page=page-1, gender=request.args.get('gender', ''), stroke=request.args.get('stroke', ''), smoking_status=request.args.get('smoking_status', '')) }}">
+            ‹ Previous
+        </a>
+        {% endif %}
+
+        <!-- Page Numbers -->
+        {% for p in range([page - 2, 1]|max, [page + 2, total_pages]|min + 1) %}
+            {% if p == page %}
+                <span class="active">{{ p }}</span>
+            {% else %}
+                <a href="{{ url_for('list_patients', page=p, gender=request.args.get('gender', ''), stroke=request.args.get('stroke', ''), smoking_status=request.args.get('smoking_status', '')) }}">
+                    {{ p }}
+                </a>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Next Page -->
+        {% if page < total_pages %}
+        <a href="{{ url_for('list_patients', page=page+1, gender=request.args.get('gender', ''), stroke=request.args.get('stroke', ''), smoking_status=request.args.get('smoking_status', '')) }}">
+            Next ›
+        </a>
+        {% endif %}
+
+        <!-- Last Page -->
+        {% if page < total_pages %}
+        <a href="{{ url_for('list_patients', page=total_pages, gender=request.args.get('gender', ''), stroke=request.args.get('stroke', ''), smoking_status=request.args.get('smoking_status', '')) }}">
+            Last »
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% else %}
     <!-- Empty State -->
     <div class="card">
