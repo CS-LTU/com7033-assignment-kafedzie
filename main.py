@@ -103,7 +103,6 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-#------------------
 # Helper Functions
 #------------------  
 def validate_object_id(patient_id):
@@ -113,7 +112,6 @@ def validate_object_id(patient_id):
     except(InvalidId, TypeError):
         return None
 
-# -----------------------
 # Forms (Flask-WTF for CSRF + validation)
 # -----------------------
 
@@ -355,7 +353,7 @@ def reset_password():
     return render_template("reset_password.html", form=form)
 
 
- # ===== ADMIN PANEL =====
+# ===== ADMIN PANEL =====
 
 @app.route("/admin")
 @admin_required
@@ -439,7 +437,7 @@ def admin_delete_user(user_id):
     flash(f"User {email} deleted successfully.", "success")
     return redirect(url_for("admin_panel"))
 
-# -----------------------
+
 # Patient Management Routes
 # -----------------------
 
@@ -611,7 +609,7 @@ def delete_patient(patient_id):
     
     return redirect(url_for("list_patients"))
 
-# -----------------------
+
 # Load CSV into MongoDB patients collection
 # -----------------------
 
