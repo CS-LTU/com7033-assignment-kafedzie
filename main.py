@@ -446,33 +446,54 @@ def admin_delete_user(user_id):
 @app.route("/patients")
 @login_required
 def list_patients():
-    gender = request.args.get("gender")
-    stroke = request.args.get("stroke")
-    smoking = request.args.get("smoking_status")
-
-    query = {}
-
-    if gender:
-        query["gender"] = gender
-    if stroke:
-        query["stroke"] = stroke
-    flash("Invalid stroke filter value.", "warning")
-    if smoking:
-        query["smoking_status"] = smoking
-
-    collection = mongo.db.patients
-
-    patients_cursor = collection.find(query).sort("_id", -1)  # newest first
+    # Get pagination parameters
     page = request.args.get('page', 1, type=int)
-    per_page = 30
-    patients = list(patients_cursor.skip((page-1)*per_page).limit(per_page))
-
-    total_patients = collection.count_documents({})
-
+    per_page = 50  # Number of patients per page
+    
+    # Get filter parameters
+    gender_filter = request.args.get('gender', '').strip()
+    stroke_filter = request.args.get('stroke', '').strip()
+    smoking_filter = request.args.get('smoking_status', '').strip()
+    
+    # Build MongoDB query
+    query = {}
+    
+    # Add filters only if they have values (not empty strings)
+    if gender_filter:
+        query['gender'] = gender_filter
+    
+    if stroke_filter:
+        try:
+            query['stroke'] = int(stroke_filter)
+        except ValueError:
+            flash('Invalid stroke filter value.', 'warning')
+            return redirect(url_for('list_patients'))
+    
+    if smoking_filter:
+        query['smoking_status'] = smoking_filter
+    
+    # Get total count for pagination
+    total_patients = mongo.db.patients.count_documents(query)
+    total_pages = (total_patients + per_page - 1) // per_page  # Ceiling division
+    
+    # Ensure page is within valid range
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_pages > 0:
+        page = total_pages
+    
+    # Calculate skip value for pagination
+    skip = (page - 1) * per_page
+    
+    # Get patients for current page
+    patients = list(mongo.db.patients.find(query).skip(skip).limit(per_page))
+    
     return render_template(
         "patients.html",
         patients=patients,
         total_patients=total_patients,
+        page=page,
+        total_pages=total_pages if total_pages > 0 else 1
     )
 
 @app.route("/patients/<patient_id>")
